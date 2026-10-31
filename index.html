@@ -189,9 +189,93 @@
         ]
       }
     </script>
+
+    <!-- Global Inline Error Logger to Catch Script Failures & Network 404s -->
+    <script>
+      (function() {
+        function showCriticalError(title, message, source, lineno, colno, stack) {
+          if (document.getElementById('critical-runtime-error-banner')) {
+            const list = document.getElementById('critical-error-extra-list');
+            if (list) {
+              const item = document.createElement('div');
+              item.style.marginTop = '10px';
+              item.style.paddingTop = '10px';
+              item.style.borderTop = '1px solid rgba(255,255,255,0.2)';
+              item.innerHTML = '<strong>' + title + ':</strong> ' + message;
+              list.appendChild(item);
+            }
+            return;
+          }
+
+          const banner = document.createElement('div');
+          banner.id = 'critical-runtime-error-banner';
+          banner.style.position = 'fixed';
+          banner.style.inset = '0';
+          banner.style.width = '100vw';
+          banner.style.height = '100vh';
+          banner.style.zIndex = '9999999';
+          banner.style.backgroundColor = '#1a0505';
+          banner.style.color = '#ffdddd';
+          banner.style.padding = '24px';
+          banner.style.fontFamily = 'monospace, -apple-system, sans-serif';
+          banner.style.overflow = 'auto';
+          banner.style.boxSizing = 'border-box';
+          banner.style.display = 'flex';
+          banner.style.flexDirection = 'column';
+          banner.style.alignItems = 'center';
+          banner.style.justifyContent = 'center';
+
+          banner.innerHTML = `
+            <div style="max-width: 900px; width: 100%; margin: auto;">
+              <div style="background: #e11d48; color: #ffffff; padding: 14px 20px; font-weight: bold; font-size: 16px; border-radius: 8px 8px 0 0; display: flex; justify-content: space-between; align-items: center;">
+                <span>⚠️ Critical Script / Runtime Error</span>
+                <span style="font-size: 12px; font-weight: normal; opacity: 0.9;">AUVYQ Diagnostics</span>
+              </div>
+              <div style="background: #2a0808; border: 2px solid #e11d48; border-top: none; padding: 24px; border-radius: 0 0 8px 8px; box-shadow: 0 25px 60px rgba(0,0,0,0.85);">
+                <div style="font-size: 16px; font-weight: bold; color: #fecdd3; margin-bottom: 8px;">
+                  ${title}: <span style="color: #ffffff;">${message}</span>
+                </div>
+                ${source ? `<div style="font-size: 13px; color: #fda4af; margin-bottom: 8px;"><strong>Source File:</strong> ${source} ${lineno ? `(Line: ${lineno}${colno ? `:${colno}` : ''})` : ''}</div>` : ''}
+                ${stack ? `<pre style="background: #110303; border: 1px solid #7f1d1d; color: #ff8888; padding: 14px; border-radius: 6px; overflow-x: auto; font-size: 12px; margin: 16px 0; line-height: 1.5; white-space: pre-wrap; max-height: 300px;">${stack}</pre>` : ''}
+                <div id="critical-error-extra-list"></div>
+                <div style="margin-top: 20px; padding-top: 16px; border-top: 1px solid #7f1d1d; display: flex; gap: 12px; flex-wrap: wrap;">
+                  <button onclick="window.location.reload()" style="background: #e11d48; color: white; border: none; padding: 10px 18px; font-weight: 600; font-size: 13px; border-radius: 4px; cursor: pointer;">
+                    ↻ Reload Page
+                  </button>
+                  <button onclick="window.location.href=window.location.pathname" style="background: #4c0519; color: #fda4af; border: 1px solid #9f1239; padding: 10px 18px; font-size: 13px; border-radius: 4px; cursor: pointer;">
+                    Reset URL
+                  </button>
+                </div>
+              </div>
+            </div>
+          `;
+          document.body ? document.body.appendChild(banner) : document.documentElement.appendChild(banner);
+        }
+
+        // 1. Uncaught script errors
+        window.onerror = function(msg, url, lineNo, columnNo, error) {
+          showCriticalError('Script Execution Error', msg, url, lineNo, columnNo, error ? error.stack : '');
+          return false;
+        };
+
+        // 2. Unhandled asynchronous promise rejections
+        window.addEventListener('unhandledrejection', function(event) {
+          const reason = event.reason || {};
+          showCriticalError('Unhandled Promise Rejection', reason.message || String(reason), reason.fileName || '', reason.lineNumber || '', 0, reason.stack || '');
+        });
+
+        // 3. Capturing network asset load failures (e.g. script/link 404s)
+        window.addEventListener('error', function(event) {
+          if (event.target && (event.target.tagName === 'SCRIPT' || event.target.tagName === 'LINK')) {
+            const url = event.target.src || event.target.href || 'unknown';
+            showCriticalError('Asset Load Failure (HTTP/Network)', 'Browser failed to load essential asset: ' + url, url);
+          }
+        }, true);
+      })();
+    </script>
   </head>
   <body class="bg-[#11120D] text-[#FFFBF4] antialiased selection:bg-[#FFFBF4] selection:text-[#11120D]">
     <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
+    <script type="module" src="./src/main.tsx"></script>
   </body>
 </html>
